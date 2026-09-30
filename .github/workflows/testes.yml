@@ -1,0 +1,87 @@
+name: Testes E2E
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: Testes Selenium e Pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Baixar o código do projeto
+        uses: actions/checkout@v7
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Configurar Node.js compatível com o Juice Shop
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Instalar dependências Python
+        run: python -m pip install -r requirements.txt
+
+      - name: Preparar e iniciar o OWASP Juice Shop v20.2.0
+        run: |
+          docker pull bkimminich/juice-shop:v20.2.0
+          docker run --detach --name juice-shop --publish 3000:3000 bkimminich/juice-shop:v20.2.0
+
+      - name: Aguardar a disponibilidade do Juice Shop
+        run: |
+          for tentativa in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/ > /dev/null; then
+              echo "OWASP Juice Shop está disponível."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs juice-shop
+          echo "OWASP Juice Shop não ficou disponível dentro do tempo limite."
+          exit 1
+
+      - name: Configurar Google Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+
+      - name: Executar testes E2E e gerar relatório HTML
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+          CHROME_HEADLESS: "true"
+          JUICE_SHOP_URL: http://localhost:3000
+        run: python -m pytest
+
+      - name: Publicar relatório HTML
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorio-html
+          path: relatorios/relatorio.html
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publicar screenshots de falhas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidencias-de-falhas
+          path: evidencias/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Encerrar o contêiner do Juice Shop
+        if: always()
+        run: docker rm --force juice-shop || true

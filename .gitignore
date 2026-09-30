@@ -1,0 +1,23 @@
+# Ambientes virtuais
+.venv/
+venv/
+
+# Configuracoes locais e dados sensiveis
+.env
+
+# Arquivos temporarios do Python e do Pytest
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Relatorios e evidencias gerados durante a execucao
+relatorios/*
+!relatorios/.gitkeep
+evidencias/*
+!evidencias/.gitkeep
+
+# Configuracoes locais de editores e do sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
